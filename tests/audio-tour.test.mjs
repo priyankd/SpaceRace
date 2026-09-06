@@ -26,6 +26,7 @@ test('audio needs a gesture, plays race events, mutes and releases its context',
  sound.update(s);const before=log.filter(e=>e[0]==='oscillator').length;
  Object.assign(s,{time:1,speed:900,boosting:true});sound.update(s);
  s.recoveries++;s.time=2;s.boosting=false;sound.update(s);
+ s.mode='gameover';sound.update(s);
  s.mode='finished';sound.update(s);
  assert(log.filter(e=>e[0]==='oscillator').length>=before+6);
  sound.setEnabled(false);const muted=log.filter(e=>e[0]==='oscillator').length;

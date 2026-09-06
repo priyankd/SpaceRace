@@ -1,3 +1,4 @@
+import {drawPlanetImage} from './planet-images.mjs';
 // Order from the Sun. Stops are a compressed flyby, not a scale model.
 export const SOLAR_STOPS=[
  {name:'Sun',color:'#ffc663',radius:95},
@@ -13,13 +14,15 @@ export const SOLAR_STOPS=[
  {name:'Pluto',color:'#c6b3a4',radius:26},
 ];
 export const tourIndex=(z,length)=>Math.max(0,Math.min(SOLAR_STOPS.length-1,Math.floor(z/length*SOLAR_STOPS.length)));
-export function drawSolarFlyby(c,w,h,s,length,reduced){
- const index=tourIndex(s.z,length),stop=SOLAR_STOPS[index];
+export function drawSolarFlyby(c,w,h,s,length,reduced,placement=null){
+ const index=tourIndex(s.z,length),stop=placement?.stop??SOLAR_STOPS[index];
  const phase=Math.min(1,(s.z/length*SOLAR_STOPS.length)-index);
- const radius=stop.radius*Math.min(w/1050,h/650)*(.75+phase*.6);
- const x=w*(.79+phase*.11),y=h*(.39+phase*.08);
+ const radius=placement?.radius??stop.radius*Math.min(w/1050,h/650)*(.75+phase*.6);
+ const x=placement?.x??w*(.79+phase*.11),y=placement?.y??h*(.39+phase*.08);
  c.save();
- if(stop.name==='Sun'){
+ if(drawPlanetImage(c,stop.name,x,y,radius)){
+  // Photos are shared by scenic flybys and the collidable miniature planets.
+ }else if(stop.name==='Sun'){
   const glow=c.createRadialGradient(x,y,radius*.7,x,y,radius*1.8);
   glow.addColorStop(0,'#ffbb6670');glow.addColorStop(1,'#ff8b2200');
   c.fillStyle=glow;c.beginPath();c.arc(x,y,radius*1.8,0,Math.PI*2);c.fill();
@@ -56,6 +59,6 @@ export function drawSolarFlyby(c,w,h,s,length,reduced){
   const shadow=c.createRadialGradient(x-radius*.4,y-radius*.45,radius*.06,x+radius*.2,y+radius*.12,radius*1.2);shadow.addColorStop(0,'#ffffff24');shadow.addColorStop(.45,'#07101e00');shadow.addColorStop(.83,'#07101ea0');shadow.addColorStop(1,'#050a16f5');c.fillStyle=shadow;c.fillRect(x-radius,y-radius,radius*2,radius*2);c.restore();
   if(stop.name==='Saturn'){c.save();c.beginPath();c.rect(x-radius*2,y,radius*4,radius);c.clip();ring();c.restore();}
  }
- c.fillStyle='#e0e9f2';c.textAlign='center';c.font='14px Arial, sans-serif';c.fillText(stop.name,x,y+radius+24);
+ c.fillStyle='#e0e9f2';c.textAlign='center';c.font='14px Arial, sans-serif';if(!placement)c.fillText(stop.name,x,y+radius+24);
  c.restore();
 }

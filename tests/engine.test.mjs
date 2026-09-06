@@ -1,32 +1,63 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createState,step,recover,LEVELS,getLevel,bestKey,coursePose,flightBounds,LENGTH,OBSTACLES,obstacleX,laserOn} from '../game/engine.mjs';
+import {createState,startRace,step,recover,LEVELS,getLevel,bestKey,collisionHit,coursePose,flightBounds,LENGTH,OBSTACLES,obstacleX,laserOn} from '../game/engine.mjs';
 const race=()=>Object.assign(createState(),{mode:'racing'});
 const tick=(s,input,n=60)=>{for(let i=0;i<n;i++)step(s,input,1/60);};
 test('briefing and pause freeze all race physics',()=>{const s=createState();tick(s,{accelerate:true});assert.equal(s.z,0);s.mode='paused';tick(s,{accelerate:true});assert.equal(s.time,0);});
 test('releasing the accelerator brakes to a stop and recharges boost',()=>{const s=race();tick(s,{accelerate:true},120);assert.equal(s.speed,630);tick(s,{accelerate:true,boost:true},120);assert.equal(s.speed,930);assert(s.boost<50);tick(s,{},120);assert.equal(s.speed,0);assert(s.boost>50);});
 test('box walls stop sideways movement without a recovery',()=>{const s=race();tick(s,{right:true},180);assert.equal(s.x,flightBounds(s.z).maxX);tick(s,{left:true},360);assert.equal(s.x,flightBounds(s.z).minX);assert.equal(s.recoveries,0);});
 test('car stays in flight through former ramp locations',()=>{const s=race();s.z=1349;s.speed=150;tick(s,{accelerate:true});assert.equal(s.y,8);assert.equal(s.vy,0);assert.equal(s.jumps,0);assert(s.z>1350);});
-test('floating rock collisions recover and shields protect the car',()=>{const s=race();Object.assign(s,{z:2799,x:-.48,speed:150});step(s,{accelerate:true},.02);assert.equal(s.recoveries,1);assert(s.z>=2800);assert(s.speed<=100);Object.assign(s,{z:2799,x:-.48,speed:150,invincible:1});step(s,{accelerate:true},.02);assert.equal(s.recoveries,1);});
-test('a laser cannot be bypassed outside its box',()=>{const s=race();Object.assign(s,{z:5699,x:1.4,speed:150});step(s,{accelerate:true},.02);assert.equal(s.recoveries,1);});
-test('laser collision matches its visible timed state',()=>{for(const [time,hit] of [[0,true],[1.5,true],[1.7,false],[4,false]]){const s=race();Object.assign(s,{z:5699,speed:150,time});step(s,{accelerate:true},.02);assert.equal(s.recoveries,Number(hit));}});
-test('discoveries do not gate completion, finish freezes and replay resets',()=>{const s=race();s.z=LENGTH-1;s.speed=200;step(s,{accelerate:true},.02);assert.equal(s.mode,'finished');const t=s.time;tick(s,{accelerate:true});assert.equal(s.time,t);assert.equal(createState().found.length,0);});
-for(const level of LEVELS)test(`a driver can finish ${level.name} with steering and braking`,()=>{const s=Object.assign(createState(level.id),{mode:'racing'});for(let i=0;i<60*240&&s.mode==='racing';i++){
- const o=level.obstacles.find(o=>o.z>s.z&&o.z-s.z<600&&s.y-(o.y??0)>-105);let target=0,brake=false;
- if(o?.type==='laser')brake=o.z-s.z<s.speed*s.speed/(2*690)+100&&laserOn(o,s.time);
- else if(o){
-  const group=level.obstacles.filter(other=>other.z===o.z&&s.y-(other.y??0)>-105);
-  const safe=[-.95,-.65,0,.65,.95].filter(x=>group.every(other=>other.type==='asteroid'?Math.abs(x)>.93:Math.abs(x-obstacleX(other,s.time))>.3));
-  target=safe.sort((a,b)=>Math.abs(a-s.x)-Math.abs(b-s.x))[0]??0;
-  // Slow before a lane change that cannot be completed at the current speed.
-  brake=Math.abs(target-s.x)>.3&&o.z-s.z<400&&s.speed>300;
+test('three impacts consume three lives and freeze the run until restart',()=>{
+ const s=race();
+ for(let hit=1;hit<=3;hit++){
+  Object.assign(s,{z:2799,x:-.48,y:8,speed:150});step(s,{accelerate:true},.02);
+  assert.equal(s.lives,3-hit);assert.equal(s.recoveries,hit);
  }
- step(s,{accelerate:!brake,left:s.x>target+.03,right:s.x<target-.03},1/60);
- }assert.equal(s.mode,'finished');assert.equal(s.found.length,3);assert.equal(s.jumps,0);assert(s.recoveries<8);});
+ assert.equal(s.mode,'gameover');assert.equal(s.speed,0);assert.equal(s.boosting,false);
+ const frozen={...s};tick(s,{accelerate:true,boost:true});assert.deepEqual(s,frozen);
+ assert.equal(createState().lives,3);
+});
+test('half-wall lasers remain on and have matching safe openings',()=>{
+ for(const level of LEVELS)for(const o of level.obstacles.filter(o=>o.type==='laser')){
+  for(const time of [0,1.7,4,12])assert(laserOn(o,time));
+  const floor=o.y??0;
+  const blocked={left:[-.5,floor+80],right:[.5,floor+80],upper:[0,floor+210],lower:[0,floor+30]}[o.side];
+  const safe={left:[.5,floor+80],right:[-.5,floor+80],upper:[0,floor+30],lower:[0,floor+210]}[o.side];
+  for(const [coords,lives] of [[blocked,2],[safe,3]]){
+   const state=Object.assign(createState(level.id),{mode:'racing',z:o.z-1,x:coords[0],y:coords[1],speed:150});
+   step(state,{accelerate:true},.02);assert.equal(state.lives,lives,level.id+' '+o.side);
+  }
+ }
+});
+test('discoveries do not gate completion, finish freezes and replay resets',()=>{const s=race();s.z=LENGTH-1;s.speed=200;step(s,{accelerate:true},.02);assert.equal(s.mode,'finished');const t=s.time;tick(s,{accelerate:true});assert.equal(s.time,t);assert.equal(createState().found.length,0);});
+for(const level of LEVELS)test(`a driver can finish ${level.name} with steering and braking`,()=>{
+ const s=Object.assign(createState(level.id),{mode:'racing'});
+ for(let i=0;i<60*600&&s.mode==='racing';i++){
+  const o=level.obstacles.find(o=>o.z>s.z&&o.z-s.z<700);
+  let target=s.x,targetY=s.y,brake=s.speed>180;
+  if(o){
+   const distance=o.z-s.z,arrival=s.time+distance/Math.max(100,s.speed);
+   const predicted={...s,time:arrival,y:Math.max(flightBounds(o.z,level.id).minY,Math.min(flightBounds(o.z,level.id).maxY,s.y))};
+   const group=level.obstacles.filter(other=>Math.abs(other.z-o.z)<50);
+   if(o.type==='laser'){
+    const floor=o.y??0;
+    target=o.side==='left'?.55:o.side==='right'?-.55:0;
+    targetY=Math.max(flightBounds(s.z,level.id).minY,Math.min(flightBounds(s.z,level.id).maxY,floor+(o.side==='lower'?220:30)));
+    if(distance<200&&(Math.abs(s.x-target)>.08||Math.abs(s.y-targetY)>15))brake=true;
+   }
+   else{
+    const safe=[-.8,-.65,-.4,0,.4,.65,.8].filter(x=>group.every(other=>!collisionHit({...predicted,x},other)));
+    target=safe.sort((a,b)=>Math.abs(a-s.x)-Math.abs(b-s.x))[0]??s.x;
+    if(distance<150&&Math.abs(target-s.x)>.08)brake=true;
+   }
+  }
+  step(s,{accelerate:!brake,left:s.x>target+.02,right:s.x<target-.02,rise:s.y<targetY-5,descend:s.y>targetY+5},1/60);
+ }
+ assert.equal(s.mode,'finished');assert.equal(s.found.length,3);assert(s.lives>0);
+});
 test('manual recovery never erases discoveries',()=>{const s=race();s.found=[0];recover(s);assert.deepEqual(s.found,[0]);});
 test('vertical controls climb, descend and hold altitude on release',()=>{const s=race();tick(s,{rise:true},30);assert(s.y>100);const altitude=s.y;tick(s,{});assert.equal(s.y,altitude);assert.equal(s.vy,0);tick(s,{descend:true},30);assert(Math.abs(s.y-8)<1e-8);tick(s,{rise:true,descend:true});assert(Math.abs(s.y-8)<1e-8);});
 test('vertical flight limits and recovery keep the car in the flight envelope',()=>{const s=race();tick(s,{rise:true},300);assert.equal(s.y,flightBounds(s.z).maxY);assert.equal(s.vy,0);tick(s,{descend:true},300);assert.equal(s.y,flightBounds(s.z).minY);recover(s);assert.equal(s.y,8);assert.equal(s.vy,0);});
-test('active laser boxes cannot be bypassed above or below',()=>{for(const level of LEVELS)for(const o of level.obstacles.filter(o=>o.type==='laser'))for(const y of [-1000,2000]){const s=Object.assign(createState(level.id),{mode:'racing',z:o.z-1,y,speed:150,time:(6-(o.phase??0))%6});step(s,{accelerate:true},.02);assert.equal(s.recoveries,1);}});
 test('flight stays inside rising and falling boxes during a whole run',()=>{for(const level of LEVELS){const s=Object.assign(createState(level.id),{mode:'racing'});for(let i=0;i<15000&&s.mode==='racing';i++){step(s,{accelerate:true,boost:true,right:i%200<100,left:i%200>=100,rise:i%180<90,descend:i%180>=90},1/60);const b=flightBounds(s.z,level.id);assert(s.x>=b.minX&&s.x<=b.maxX);assert(s.y>=b.minY&&s.y<=b.maxY);}}});
 test('levels have separate records, discoveries and race resets',()=>{
  assert.equal(new Set(LEVELS.map(l=>bestKey(l.id))).size,LEVELS.length);
@@ -48,4 +79,31 @@ test('winding routes alternate direction and join smoothly in every world',()=>{
   for(const gate of level.obstacles.filter(o=>o.type==='laser'))assert.equal(flightBounds(gate.z,level.id).floor,gate.y??0);
  }
  assert.notEqual(coursePose(4000,'moon').x,coursePose(4000,'saturn').x);
+});
+
+test('each planet has a collidable center and a safe passing lane',()=>{
+ for(const level of LEVELS){
+  const planets=level.obstacles.filter(o=>o.type==='planet');
+  assert.deepEqual(planets.map(o=>o.name),['Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto']);
+  for(const o of planets){
+   const s=Object.assign(createState(level.id),{mode:'racing',z:o.z-1,x:o.x,y:o.y-45,speed:150});
+   step(s,{accelerate:true},.02);assert.equal(s.lives,2,o.name);
+   const safe=Object.assign(createState(level.id),{mode:'racing',z:o.z-1,x:o.x>0?-.8:.8,y:o.y-45,speed:150});
+   step(safe,{accelerate:true},.02);assert.equal(safe.lives,3,o.name);
+  }
+ }
+});
+test('recenter cannot consume lives or grant collision immunity',()=>{
+ const s=race();recover(s);assert.equal(s.lives,3);assert.equal(s.invincible,0);assert.equal(s.recoveries,0);
+ Object.assign(s,{z:5699,speed:150,time:0});step(s,{accelerate:true},.02);assert.equal(s.lives,2);
+ step(s,{accelerate:true},.02);assert.equal(s.lives,2);
+});
+
+test('launch counts down three seconds before race time or movement begins',()=>{
+ const s=startRace('mars');assert.equal(s.countdown,3);assert.equal(s.mode,'countdown');
+ tick(s,{accelerate:true,boost:true,rise:true},60);assert(Math.abs(s.countdown-2)<1e-8);assert.equal(s.z,0);assert.equal(s.time,0);assert.equal(s.y,8);
+ s.resumeMode=s.mode;s.mode='paused';const remaining=s.countdown;tick(s,{accelerate:true},120);assert.equal(s.countdown,remaining);
+ s.mode=s.resumeMode;tick(s,{accelerate:true},120);assert.equal(s.mode,'racing');assert.equal(s.time,0);assert.equal(s.z,0);assert(s.goTime>0);
+ tick(s,{accelerate:true},60);assert(s.z>0);assert.equal(s.goTime,0);
+ const retry=startRace(s.levelId);assert.equal(retry.countdown,3);assert.equal(retry.lives,3);assert.equal(retry.z,0);
 });

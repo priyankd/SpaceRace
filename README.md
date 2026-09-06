@@ -22,14 +22,14 @@ npm run build
 ## Play
 
 - Hold W to accelerate; release W to brake automatically. A / D or Left / Right steer.
-- Up rises and Down descends (Q/E also work); release to hold altitude. Touch devices have Rise and Down buttons. Move above or below boulders while staying inside the boxes. Wait for laser gates to turn green. Higher flight levels also contain boulders, moving asteroids and elevated laser gates.
+- Up rises and Down descends (Q/E also work); release to hold altitude. Touch devices have Rise and Down buttons. Move above or below boulders while staying inside the boxes. Fly through the open half of each laser wall. Higher flight levels also contain boulders, moving asteroids and elevated laser gates.
 - Hold Space or Shift while accelerating to boost. On touch devices, release Hold to go to brake.
 - P / Escape pauses; R recenters the car without rewinding.
 - Touch controls support simultaneous steering, throttle and boost.
 - Hover pods keep the car airborne automatically. Steer within the floating box corridor. Its four walls stop the car gently, and the corridor rises and falls to meet elevated gates.
-- Avoid floating boulders and moving asteroids. Brake for red laser gates and cross on green. Lasers are active for 1.6–2 seconds in each 6-second cycle, leaving 4–4.4 seconds to pass.
-- Collisions slow the car and trigger a short shield without rewinding. There are no checkpoint gates or saved checkpoint positions. The box boundaries prevent bypassing laser gates above, below, or to the side.
-- The 30,000-unit course is 2.5× its original length, with 48 floating obstacles and no checkpoints. The first 2,000 units are a safe practice airspace. Later sections add denser slaloms, faster asteroids and shorter green gate windows. There is no time limit.
+- Avoid floating boulders and moving asteroids. Lasers stay on and cover alternating left, bottom, right and top halves of the corridor. Horizontal and vertical beams match the collision area; steer or change height through the open half.
+- Every run starts with three lives. Each laser, asteroid, rock or planet collision costs one life and slows the car without rewinding. The third impact ends the run; Try again restores three lives. The brief impact glow is visual feedback, not immunity. Recenter does not cost lives or grant immunity. There are no checkpoint gates or saved checkpoint positions. The box boundaries keep the car inside the corridor while passing through laser openings.
+- The 30,000-unit course is 2.5× its original length, with floating obstacles and no checkpoints. The first 2,000 units are a safe practice airspace. Later sections add denser slaloms, faster asteroids and alternating laser openings. There is no time limit.
 - Finish earns an explorer badge. Replay starts a fresh run; your best time stays on this browser if local storage is available.
 - The optional journal pauses driving and can be opened at any time. No quizzes, assessments or knowledge gates.
 
@@ -59,6 +59,18 @@ The car uses a generated lime Lamborghini-style rear-view sprite. Three generate
 
 A side display follows the Sun, Mercury, Venus, Earth, Mars, the asteroid belt, Jupiter, Saturn, Uranus, Neptune and Pluto in that order as each race progresses. Planet silhouettes, surface shading and rings accompany the flyby. The Sun is a star, Pluto is a dwarf planet, and the belt is not counted as a planet. Distances, sizes and travel times are compressed, not a realistic aligned planetary configuration. Order reference: https://science.nasa.gov/solar-system/planets/.
 
-Synthesized cockpit sounds include a speed-sensitive engine, boost sweep, collision thump, laser warning, planet-pass chime and finish melody. Sound starts only after a player gesture. The speaker button mutes it, and pausing or hiding the page silences it. Sounds are fictional cockpit feedback, not sound travelling through space.
+Synthesized cockpit sounds include a speed-sensitive engine, boost sweep, collision thump, laser warning, planet-pass chime, game-over tone and finish melody. Sound starts only after a player gesture. The speaker button mutes it, and pausing or hiding the page silences it. Sounds are fictional cockpit feedback, not sound travelling through space.
 
 The airborne corridor follows smooth alternating sweeps and S-turns, with stronger bends on later worlds. Connected corner rails show the route ahead, the camera follows its heading, and the car banks into bends. Climbs ease smoothly into laser gates while retaining the enforced box boundaries.
+
+Miniature versions of the eight planets and Pluto appear inside the flight corridor in solar-system order, aligned with the matching sidebar flyby. Their spherical collision areas leave room to pass on the opposite side. Saturn’s rings are decorative. Three-life records are stored separately from earlier unlimited-life runs.
+
+The supplied purple nebula photo is the shared race background (`public/assets/nebula-background.jpg`), scaled to cover each screen without stretching and dimmed for obstacle visibility.
+
+The supplied green energy photo (`public/assets/green-energy.jpg`) textures the corridor frames, with screen blending and a gentle glow pulse. The frame centers stay clear; the half-wall lasers use a red warning color.
+
+The nebula background shifts with steering, course heading and altitude. Overscan prevents empty edges, and reduced-motion mode keeps the background still. Records use a separate key for the permanent half-wall laser course.
+
+Starting or retrying a race shows a three-second countdown, then GO. Race time starts after the countdown, which pauses with the game. Three original 120 BPM pop instrumentals rotate during racing, each with verse, chorus, breakdown and finale sections, changing melodies, chord progressions, bass and drums. Each arrangement lasts 48 seconds before the next begins. The speaker button mutes music and effects together; pausing, changing tabs or ending the race stops the music.
+
+The Sun, eight planets and Pluto use the supplied photos in both scenic flybys and corridor obstacles. Original PNGs are stored as `public/assets/planet-*.png`; canvas clipping hides the surrounding rectangular backgrounds while preserving rings. Planet disks keep their existing collision sizes.
